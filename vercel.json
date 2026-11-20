@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://nofluff-backend-m2s3.onrender.com/api/$1"
+    }
+  ]
+}
