@@ -165,6 +165,11 @@ export default function App() {
   };
 
   const handleSend = async (original) => {
+    if (!signedIn) {
+      setRequestError("Sign in with Google to use your daily rewrite requests.");
+      setSignInOpen(true);
+      return false;
+    }
     setRequestError("");
     setConversation({ original, result: null, followUps: [] });
     setComparePair(null);
@@ -249,6 +254,7 @@ export default function App() {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Google sign-in could not be completed. Please try again.");
+    setRequestError("");
     setAccountUser(payload.user);
     setSignedIn(true);
     if (conversation) saveConversation(conversation);

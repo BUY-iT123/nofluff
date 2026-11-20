@@ -98,9 +98,9 @@ export default function SignInModal({ onClose, onComplete, onGoogleCredential })
           </svg>
         </button>
         <Logo size={40} />
-        <h2 id="sign-in-title" className="mt-4 text-[20px] font-medium leading-7 text-text">Save your work</h2>
+        <h2 id="sign-in-title" className="mt-4 text-[20px] font-medium leading-7 text-text">Sign in to use NoFluff</h2>
         <p id="sign-in-description" className="mt-2 text-[15px] leading-[22px] text-muted">
-          Sign in to keep this and find it later.
+          Sign in with Google to use your daily rewrite requests and save your work.
         </p>
 
         {!emailMode ? (
