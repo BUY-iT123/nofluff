@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Logo from "./Logo";
 
-export default function SignInModal({ onClose, onComplete, onGoogleCredential }) {
-  const [emailMode, setEmailMode] = useState(false);
-  const [email, setEmail] = useState("");
+export default function SignInModal({ onClose, onGoogleCredential }) {
   const [googleError, setGoogleError] = useState("");
   const [googleBusy, setGoogleBusy] = useState(false);
   const googleButton = useRef(null);
@@ -13,7 +11,6 @@ export default function SignInModal({ onClose, onComplete, onGoogleCredential })
   credentialHandlerRef.current = onGoogleCredential;
 
   useEffect(() => {
-    if (emailMode) return undefined;
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (!clientId) {
       setGoogleError("Google sign-in needs a Google client ID in the frontend .env file.");
@@ -57,7 +54,7 @@ export default function SignInModal({ onClose, onComplete, onGoogleCredential })
       document.head.appendChild(script);
     }
     return () => { cancelled = true; };
-  }, [emailMode]);
+  }, []);
 
   useEffect(() => {
     const closeOnEscape = (event) => {
@@ -66,12 +63,6 @@ export default function SignInModal({ onClose, onComplete, onGoogleCredential })
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
-
-  const handleEmailSubmit = (event) => {
-    event.preventDefault();
-    if (!event.currentTarget.reportValidity()) return;
-    onComplete();
-  };
 
   return (
     <div
@@ -103,27 +94,9 @@ export default function SignInModal({ onClose, onComplete, onGoogleCredential })
           Sign in with Google to use your daily rewrite requests and save your work.
         </p>
 
-        {!emailMode ? (
-          <>
-            <div className={`mt-6 flex min-h-11 w-full justify-center ${googleBusy ? "pointer-events-none opacity-60" : ""}`} ref={googleButton} />
-            {googleBusy && <p className="mt-2 text-small text-muted" role="status">Signing in with Google…</p>}
-            {googleError && <p className="mt-2 text-small text-red-600" role="alert">{googleError}</p>}
-            <button type="button" onClick={() => setEmailMode(true)} className="mt-4 min-h-10 rounded-button px-2 text-small font-medium text-brand focus-visible:outline-none">Use email instead</button>
-          </>
-        ) : (
-          <form onSubmit={handleEmailSubmit} className="mt-6 flex w-full flex-col gap-3">
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              aria-label="Email address"
-              placeholder="you@email.com"
-              className="h-12 w-full rounded-button border border-border-strong bg-card px-4 text-input text-text placeholder:text-muted focus:border-brand focus:outline-none"
-            />
-            <button type="submit" className="h-12 w-full rounded-button bg-brand text-user font-medium text-white">Send me a link</button>
-          </form>
-        )}
+        <div className={`mt-6 flex min-h-11 w-full justify-center ${googleBusy ? "pointer-events-none opacity-60" : ""}`} ref={googleButton} />
+        {googleBusy && <p className="mt-2 text-small text-muted" role="status">Signing in with Google…</p>}
+        {googleError && <p className="mt-2 text-small text-red-600" role="alert">{googleError}</p>}
 
       </section>
     </div>

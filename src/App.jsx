@@ -300,7 +300,7 @@ export default function App() {
           />
         </main>
       </div>
-      {signInOpen && <SignInModal onClose={() => setSignInOpen(false)} onGoogleCredential={handleGoogleCredential} onComplete={() => { saveConversation(); setSignInOpen(false); }} />}
+      {signInOpen && <SignInModal onClose={() => setSignInOpen(false)} onGoogleCredential={handleGoogleCredential} />}
     </div>
   );
 }
