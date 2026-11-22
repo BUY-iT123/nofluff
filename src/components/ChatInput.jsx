@@ -40,14 +40,9 @@ export default function ChatInput({ remaining = 5, hasResult = false, compareOpe
         ) : (
           <>
             {showEditBar && (
-              <div className="edit-mode-bar mb-2 flex h-10 items-center gap-2 rounded-card border border-selected-border bg-selected pl-3 pr-0.5 max-mobile:h-9">
+              <div className="edit-mode-bar mb-2 flex min-h-10 items-center gap-2 rounded-card border border-selected-border bg-selected py-2 pl-3 pr-0.5 max-mobile:min-h-11">
                 <span aria-hidden="true" className="flex size-4 shrink-0 items-center justify-center rounded-row bg-brand text-[8px] font-bold text-white">NF</span>
-                <span className="min-w-0 flex-1 text-small font-medium text-text">NoFluff generated text</span>
-                <span className="flex shrink-0 items-center gap-1.5 text-small font-medium text-brand-pressed">
-                  <span>Edit text</span>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z" /><path d="m13.5 6.5 4 4" /></svg>
-                </span>
-                <span aria-hidden="true" className="h-5 w-px shrink-0 bg-selected-border" />
+                <p className="min-w-0 flex-1 text-small leading-4 text-text">Edit mode is on for the text above. Tap × to start a new rewrite instead. Edit feature coming soon.</p>
                 <button type="button" onClick={cancelEdit} aria-label="Cancel edit" className="flex size-10 shrink-0 items-center justify-center rounded-button text-text max-mobile:size-11">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
                 </button>
