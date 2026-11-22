@@ -106,10 +106,6 @@ function mockEdit(previousText, instruction) {
   return makeResult([{ t: text, c: false }], 0, "Demo note");
 }
 
-function toProject(id, conversation) {
-  return { id, title: makeProjectTitle(conversation.original), date: "Today", conversation };
-}
-
 export default function App() {
   const [signedIn, setSignedIn] = useState(false);
   const [accountUser, setAccountUser] = useState(null);
@@ -127,41 +123,59 @@ export default function App() {
   const [requestError, setRequestError] = useState("");
 
   useEffect(() => {
-    fetch("/api/auth/me")
-      .then((response) => response.ok ? response.json() : null)
-      .then((session) => {
-        if (session?.user) {
-          setAccountUser(session.user);
-          setSignedIn(true);
+    let active = true;
+    const loadAccount = async () => {
+      try {
+        const sessionResponse = await fetch("/api/auth/me");
+        const session = sessionResponse.ok ? await sessionResponse.json() : null;
+        if (!session?.user || !active) return;
+        setAccountUser(session.user);
+        setSignedIn(true);
+
+        const [usageResponse, projectsResponse] = await Promise.all([
+          fetch("/api/usage"),
+          fetch("/api/projects"),
+        ]);
+        if (!active) return;
+        if (usageResponse.ok) {
+          const usage = await usageResponse.json();
+          setRemaining(usage.remaining);
         }
-      })
-      .catch(() => {});
-    fetch("/api/usage")
-      .then((response) => response.ok ? response.json() : null)
-      .then((usage) => { if (usage) setRemaining(usage.remaining); })
-      .catch(() => {});
+        if (projectsResponse.ok) {
+          const data = await projectsResponse.json();
+          setProjects(Array.isArray(data.projects) ? data.projects : []);
+        }
+      } catch {
+        // Keep the app usable if account data cannot be reached temporarily.
+      }
+    };
+    loadAccount();
+    return () => { active = false; };
   }, []);
 
-  const saveConversation = (current = conversation) => {
-    setSignedIn(true);
-    if (!current) return;
-    const id = String(Date.now());
-    const project = toProject(id, current);
-    setProjects((existing) => [project, ...existing.filter((item) => item.id !== id)]);
-    setSelectedProjectId(id);
-  };
-
-  const persistConversation = (nextConversation, isNew) => {
-    if (!signedIn) return;
-    if (isNew || !selectedProjectId) {
-      const id = String(Date.now());
-      setProjects((existing) => [toProject(id, nextConversation), ...existing]);
-      setSelectedProjectId(id);
-    } else {
-      setProjects((existing) => existing.map((project) => project.id === selectedProjectId
-        ? { ...project, conversation: nextConversation }
-        : project));
+  const persistConversation = async (nextConversation, isNew) => {
+    if (!signedIn) throw new Error("Sign in with Google to save your writing.");
+    const createProject = isNew || !selectedProjectId;
+    const response = await fetch(createProject ? "/api/projects" : `/api/projects/${encodeURIComponent(selectedProjectId)}`, {
+      method: createProject ? "POST" : "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: makeProjectTitle(nextConversation.original) || "Untitled",
+        conversation: nextConversation,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.project) {
+      throw new Error(payload.error || "Your writing could not be saved. Please try again.");
     }
+    const project = payload.project;
+    if (createProject) {
+      setProjects((existing) => [project, ...existing.filter((item) => item.id !== project.id)]);
+      setSelectedProjectId(project.id);
+    } else {
+      setProjects((existing) => existing.map((item) => item.id === project.id ? project : item));
+    }
+    return project;
   };
 
   const handleSend = async (original) => {
@@ -194,7 +208,11 @@ export default function App() {
       setConversation(nextConversation);
       setRemaining(payload.remaining);
       setComparePair(null);
-      persistConversation(nextConversation, true);
+      try {
+        await persistConversation(nextConversation, true);
+      } catch {
+        setRequestError("Your rewrite is ready, but it couldn't be saved to your account. Please try again.");
+      }
       return true;
     } catch (error) {
       setConversation(null);
@@ -207,8 +225,8 @@ export default function App() {
     }
   };
 
-  const handleEditSend = (instruction) => {
-    if (!conversation) return;
+  const handleEditSend = async (instruction) => {
+    if (!conversation) return false;
     const previous = conversation.followUps?.at(-1)?.result ?? conversation.result;
     const result = mockEdit(asText(previous), instruction);
     const nextConversation = {
@@ -218,7 +236,12 @@ export default function App() {
     setConversation(nextConversation);
     setRemaining((count) => Math.max(0, count - 1));
     setComparePair(null);
-    persistConversation(nextConversation, false);
+    try {
+      await persistConversation(nextConversation, false);
+    } catch {
+      setRequestError("Your update is ready, but it couldn't be saved to your account. Please try again.");
+    }
+    return true;
   };
 
   const resetComposer = () => {
@@ -257,11 +280,18 @@ export default function App() {
     setRequestError("");
     setAccountUser(payload.user);
     setSignedIn(true);
-    if (conversation) saveConversation(conversation);
-    fetch("/api/usage")
-      .then((usageResponse) => usageResponse.ok ? usageResponse.json() : null)
-      .then((usage) => { if (usage) setRemaining(usage.remaining); })
-      .catch(() => {});
+    const [usageResponse, projectsResponse] = await Promise.all([
+      fetch("/api/usage"),
+      fetch("/api/projects"),
+    ]);
+    if (usageResponse.ok) {
+      const usage = await usageResponse.json();
+      setRemaining(usage.remaining);
+    }
+    if (projectsResponse.ok) {
+      const data = await projectsResponse.json();
+      setProjects(Array.isArray(data.projects) ? data.projects : []);
+    }
   };
 
   return (
