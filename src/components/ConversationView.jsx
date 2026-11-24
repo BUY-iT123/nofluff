@@ -41,7 +41,7 @@ function ReadingReply() {
   );
 }
 
-export default function ConversationView({ conversation, isReading, onSignInSave, onNewProject, signedIn, showChanges, onToggleChanges, comparePair, onCompare, onCloseCompare, inputHasText }) {
+export default function ConversationView({ conversation, isReading, onSignInSave, onNewProject, signedIn, showChanges, onToggleChanges, comparePair, onCompare, onCloseCompare, inputHasText, onMakePostReady, postReadyRemaining }) {
   const scrollRef = useRef(null);
 
   useLayoutEffect(() => {
@@ -56,13 +56,13 @@ export default function ConversationView({ conversation, isReading, onSignInSave
           <UserBubble text={conversation.original} />
           {isReading || !conversation.result ? <ReadingReply /> : (
             <div>
-              <ResultBubble result={conversation.result} showChanges={showChanges} onToggleChanges={onToggleChanges} onCompare={() => onCompare({ sourceText: conversation.original, result: conversation.result })} />
+              <ResultBubble result={conversation.result} showChanges={showChanges} onToggleChanges={onToggleChanges} onCompare={() => onCompare({ sourceText: conversation.original, result: conversation.result })} onMakePostReady={onMakePostReady} postReadyRemaining={postReadyRemaining} isLoading={isReading} />
             </div>
           )}
           {(conversation.followUps ?? []).map((followUp, index) => (
             <div key={`${index}-${followUp.instruction}`} className="flex flex-col gap-4">
               <UserBubble text={followUp.instruction} />
-              <ResultBubble result={followUp.result} showChanges={showChanges} onToggleChanges={onToggleChanges} onCompare={() => onCompare({ sourceText: followUp.source, result: followUp.result })} />
+              <ResultBubble result={followUp.result} showChanges={showChanges} onToggleChanges={onToggleChanges} onCompare={() => onCompare({ sourceText: followUp.source, result: followUp.result })} onMakePostReady={onMakePostReady} postReadyRemaining={postReadyRemaining} isLoading={isReading} />
             </div>
           ))}
           {!signedIn && <button type="button" onClick={onSignInSave} className="mt-1 ml-8 min-h-10 self-start rounded-button px-2 text-small font-medium text-brand max-mobile:ml-4">Sign in to save this</button>}

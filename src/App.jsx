@@ -110,6 +110,7 @@ export default function App() {
   const [signedIn, setSignedIn] = useState(false);
   const [accountUser, setAccountUser] = useState(null);
   const [remaining, setRemaining] = useState(5);
+  const [postReadyRemaining, setPostReadyRemaining] = useState(5);
   const [conversation, setConversation] = useState(null);
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
@@ -140,6 +141,7 @@ export default function App() {
         if (usageResponse.ok) {
           const usage = await usageResponse.json();
           setRemaining(usage.remaining);
+          setPostReadyRemaining(usage.postReadyRemaining ?? 5);
         }
         if (projectsResponse.ok) {
           const data = await projectsResponse.json();
@@ -244,6 +246,18 @@ export default function App() {
     return true;
   };
 
+  const handleMakePostReady = async (text) => {
+    const response = await fetch("/api/post-ready", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (typeof payload.remaining === "number") setPostReadyRemaining(payload.remaining);
+    if (!response.ok) throw new Error(payload.error || "Couldn't format this one. Try again.");
+    return payload;
+  };
+
   const resetComposer = () => {
     setInputKey((key) => key + 1);
     setInputHasText(false);
@@ -287,6 +301,7 @@ export default function App() {
     if (usageResponse.ok) {
       const usage = await usageResponse.json();
       setRemaining(usage.remaining);
+      setPostReadyRemaining(usage.postReadyRemaining ?? 5);
     }
     if (projectsResponse.ok) {
       const data = await projectsResponse.json();
@@ -306,6 +321,8 @@ export default function App() {
               key={selectedProjectId ?? "new-conversation"}
               conversation={conversation}
               isReading={isReading}
+              onMakePostReady={handleMakePostReady}
+              postReadyRemaining={postReadyRemaining}
               signedIn={signedIn}
               showChanges={showChanges}
               onToggleChanges={() => setShowChanges((value) => !value)}
