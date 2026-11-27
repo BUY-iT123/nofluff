@@ -94,6 +94,7 @@ function RewriteFeedback({ selected, onSelect, onStartSchedule, onDismiss }) {
       </section>}
       {offerVisible && <section className="feedback-modal w-full max-w-[420px] rounded-card border border-border bg-card p-6 text-center text-text shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="posting-plan-title">
         <h2 id="posting-plan-title" className="text-lg font-semibold">Want a simple posting plan?</h2>
+        <p className="mt-2 text-user leading-6 text-muted">Pick your days and times, and we'll remind you when it's time to post.</p>
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <button type="button" onClick={onStartSchedule} className="min-h-11 rounded-button bg-brand px-5 text-user font-medium text-white">Set my schedule</button>
           <button type="button" onClick={() => { setOfferVisible(false); onDismiss(); }} className="min-h-11 rounded-button px-5 text-user font-medium text-muted hover:bg-row-hover">Not now</button>
