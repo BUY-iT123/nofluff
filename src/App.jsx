@@ -6,6 +6,7 @@ import Sidebar from "./components/Sidebar";
 import ConversationView from "./components/ConversationView";
 import MobileDrawer from "./components/MobileDrawer";
 import SignInModal from "./components/SignInModal";
+import ReminderSetup from "./components/ReminderSetup";
 
 function makeProjectTitle(text = "") {
   return text.trim().split(/\s+/).slice(0, 5).join(" ").replace(/[.,!?;:]+$/, "");
@@ -122,6 +123,8 @@ export default function App() {
   const [comparePair, setComparePair] = useState(null);
   const [isReading, setIsReading] = useState(false);
   const [requestError, setRequestError] = useState("");
+  const [feedbackEligible, setFeedbackEligible] = useState(false);
+  const [reminderSetupOpen, setReminderSetupOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -133,19 +136,24 @@ export default function App() {
         setAccountUser(session.user);
         setSignedIn(true);
 
-        const [usageResponse, projectsResponse] = await Promise.all([
+        const [usageResponse, projectsResponse, feedbackResponse] = await Promise.all([
           fetch("/api/usage"),
           fetch("/api/projects"),
+          fetch("/api/feedback/status"),
         ]);
         if (!active) return;
         if (usageResponse.ok) {
           const usage = await usageResponse.json();
           setRemaining(usage.remaining);
-          setPostReadyRemaining(usage.postReadyRemaining ?? 5);
+          setPostReadyRemaining(usage.remaining ?? 5);
         }
         if (projectsResponse.ok) {
           const data = await projectsResponse.json();
           setProjects(Array.isArray(data.projects) ? data.projects : []);
+        }
+        if (feedbackResponse.ok) {
+          const feedback = await feedbackResponse.json();
+          setFeedbackEligible(Boolean(feedback.eligible));
         }
       } catch {
         // Keep the app usable if account data cannot be reached temporarily.
@@ -209,6 +217,7 @@ export default function App() {
       const nextConversation = { original, result, followUps: [] };
       setConversation(nextConversation);
       setRemaining(payload.remaining);
+      setPostReadyRemaining(payload.remaining);
       setComparePair(null);
       try {
         await persistConversation(nextConversation, true);
@@ -253,8 +262,32 @@ export default function App() {
       body: JSON.stringify({ text }),
     });
     const payload = await response.json().catch(() => ({}));
-    if (typeof payload.remaining === "number") setPostReadyRemaining(payload.remaining);
+    if (typeof payload.remaining === "number") {
+      setRemaining(payload.remaining);
+      setPostReadyRemaining(payload.remaining);
+    }
     if (!response.ok) throw new Error(payload.error || "Couldn't format this one. Try again.");
+    return payload;
+  };
+
+  const handleSubmitFeedback = async (reaction) => {
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reaction }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Your feedback couldn’t be saved. Please try again.");
+  };
+
+  const handleSaveReminder = async (schedule) => {
+    const response = await fetch("/api/reminders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(schedule),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Your schedule could not be saved. Please try again.");
     return payload;
   };
 
@@ -294,18 +327,23 @@ export default function App() {
     setRequestError("");
     setAccountUser(payload.user);
     setSignedIn(true);
-    const [usageResponse, projectsResponse] = await Promise.all([
+    const [usageResponse, projectsResponse, feedbackResponse] = await Promise.all([
       fetch("/api/usage"),
       fetch("/api/projects"),
+      fetch("/api/feedback/status"),
     ]);
     if (usageResponse.ok) {
       const usage = await usageResponse.json();
       setRemaining(usage.remaining);
-      setPostReadyRemaining(usage.postReadyRemaining ?? 5);
+      setPostReadyRemaining(usage.remaining ?? 5);
     }
     if (projectsResponse.ok) {
       const data = await projectsResponse.json();
       setProjects(Array.isArray(data.projects) ? data.projects : []);
+    }
+    if (feedbackResponse.ok) {
+      const feedback = await feedbackResponse.json();
+      setFeedbackEligible(Boolean(feedback.eligible));
     }
   };
 
@@ -316,13 +354,19 @@ export default function App() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <MobileHeader onOpenProjects={() => setProjectsOpen(true)} projectsOpen={projectsOpen} />
         <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-          {conversation ? (
+          {reminderSetupOpen ? (
+            <ReminderSetup email={accountUser?.email} onBack={() => setReminderSetupOpen(false)} onSave={handleSaveReminder} />
+          ) : conversation ? (
             <ConversationView
               key={selectedProjectId ?? "new-conversation"}
               conversation={conversation}
               isReading={isReading}
               onMakePostReady={handleMakePostReady}
               postReadyRemaining={postReadyRemaining}
+              showFeedback={feedbackEligible}
+              onSubmitFeedback={handleSubmitFeedback}
+              onFeedbackFlowDone={() => setFeedbackEligible(false)}
+              onStartSchedule={() => { setFeedbackEligible(false); setReminderSetupOpen(true); }}
               signedIn={signedIn}
               showChanges={showChanges}
               onToggleChanges={() => setShowChanges((value) => !value)}
@@ -334,7 +378,7 @@ export default function App() {
               inputHasText={inputHasText}
             />
           ) : <EmptyState isReading={isReading} />}
-          <ChatInput
+          {!reminderSetupOpen && <ChatInput
             key={inputKey}
             remaining={remaining}
             hasResult={Boolean(conversation)}
@@ -344,7 +388,7 @@ export default function App() {
             onValueChange={(value) => setInputHasText(Boolean(value.trim()))}
             onSend={handleSend}
             onEditSend={handleEditSend}
-          />
+          />}
         </main>
       </div>
       {signInOpen && <SignInModal onClose={() => setSignInOpen(false)} onGoogleCredential={handleGoogleCredential} />}

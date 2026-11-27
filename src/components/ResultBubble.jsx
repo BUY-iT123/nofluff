@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCheckNotes, shouldShowPostReady } from "../utils/postReady";
 
 function ResultText({ segs, showChanges }) {
@@ -42,8 +42,73 @@ function CopyIcon({ copied }) {
   );
 }
 
-export default function ResultBubble({ result, showChanges, onToggleChanges, onCompare, onMakePostReady, postReadyRemaining = 5, isLoading = false }) {
+const rewriteReactions = [
+  { value: "sad", emoji: "😞", label: "Sad" },
+  { value: "angry", emoji: "😠", label: "Angry" },
+  { value: "like", emoji: "👍", label: "Like" },
+  { value: "happy", emoji: "😄", label: "Happy" },
+];
+
+function RewriteFeedback({ selected, onSelect, onStartSchedule, onDismiss }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [offerVisible, setOfferVisible] = useState(false);
+  const offerTimer = useRef(null);
+
+  useEffect(() => () => window.clearTimeout(offerTimer.current), []);
+
+  const handleSelect = async (value) => {
+    if (saving || selected) return;
+    setSaving(true);
+    setError("");
+    try {
+      await onSelect(value);
+      offerTimer.current = window.setTimeout(() => setOfferVisible(true), 1800);
+    } catch (feedbackError) {
+      setError(feedbackError.message || "Your feedback couldn’t be saved. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="mt-4 max-w-[85%] rounded-card border border-border bg-card p-4 text-text shadow-card max-mobile:ml-4 max-mobile:max-w-[92%]" aria-label="Rewrite feedback">
+      <p className="mb-3 text-small font-medium">Do you like this NoFluff rewrite?</p>
+      <div className="flex items-start justify-between gap-1">
+        {rewriteReactions.map((reaction) => {
+          const isSelected = selected === reaction.value;
+          return (
+            <button
+              type="button"
+              key={reaction.value}
+              aria-label={reaction.label}
+              aria-pressed={isSelected}
+              disabled={saving || Boolean(selected)}
+              onClick={() => handleSelect(reaction.value)}
+              className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-button border px-1 py-2 transition-colors disabled:cursor-default ${isSelected ? "border-selected-border bg-selected" : "border-transparent bg-transparent hover:bg-selected"}`}
+            >
+              <span className="text-2xl leading-none" aria-hidden="true">{reaction.emoji}</span>
+              <span className="text-[10px] leading-3 text-muted">{reaction.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {saving && <p className="mt-2 text-small text-muted" role="status">Saving your feedback…</p>}
+      {error && <p className="mt-2 text-small text-text" role="alert">{error}</p>}
+      {offerVisible && <div className="mt-4 rounded-card border border-selected-border bg-selected p-3">
+        <p className="text-small font-medium text-text">Want a simple posting plan?</p>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={onStartSchedule} className="min-h-10 rounded-button bg-brand px-3 text-small font-medium text-white">Set my schedule</button>
+          <button type="button" onClick={onDismiss} className="min-h-10 rounded-button px-2 text-small font-medium text-muted">Not now</button>
+        </div>
+      </div>}
+    </section>
+  );
+}
+
+export default function ResultBubble({ result, showChanges, onToggleChanges, onCompare, onMakePostReady, postReadyRemaining = 5, isLoading = false, showFeedback = false, onSubmitFeedback, onFeedbackFlowDone, onStartSchedule }) {
   const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState(null);
   const [postReadyText, setPostReadyText] = useState(null);
   const [postReadyLoading, setPostReadyLoading] = useState(false);
   const [postReadyError, setPostReadyError] = useState("");
@@ -55,6 +120,7 @@ export default function ResultBubble({ result, showChanges, onToggleChanges, onC
   useEffect(() => {
     setPostReadyText(null);
     setPostReadyError("");
+    setFeedback(null);
   }, [result.text]);
 
   useEffect(() => {
@@ -104,11 +170,6 @@ export default function ResultBubble({ result, showChanges, onToggleChanges, onC
     <div className="flex min-w-0 items-start gap-2 max-mobile:flex-col max-mobile:gap-2">
       <span className="flex size-6 shrink-0 items-center justify-center rounded-row bg-brand text-[11px] font-bold text-white max-mobile:ml-4 max-mobile:size-5">NF</span>
       <div className="min-w-0 flex-1 max-mobile:w-full">
-        {hasChecks && (
-          <p className="mb-2 max-w-[85%] text-small leading-[18px] text-muted max-mobile:ml-4 max-mobile:max-w-[92%]">
-            You still have {checks.length} {checks.length === 1 ? "thing" : "things"} to check.
-          </p>
-        )}
         <article className="relative w-full max-w-[85%] rounded-card border border-border bg-card p-4 text-input leading-[26px] text-text shadow-card max-mobile:max-w-[92%]">
           <button type="button" onClick={handleCopy} aria-label={copied ? "Copied" : "Copy"} className={`absolute right-2 top-2 flex size-10 items-center justify-center rounded-button ${copied ? "text-brand" : "text-text"}`}>
             <CopyIcon copied={copied} />
@@ -147,6 +208,10 @@ export default function ResultBubble({ result, showChanges, onToggleChanges, onC
           </div>}
         </div>
         {postReadyError && <p role="alert" className="mt-2 max-w-[85%] text-small leading-[18px] text-text max-mobile:ml-4 max-mobile:max-w-[92%]">{postReadyError}</p>}
+        {showFeedback && !isLoading && <RewriteFeedback selected={feedback} onSelect={async (value) => {
+          await onSubmitFeedback(value);
+          setFeedback(value);
+        }} onStartSchedule={onStartSchedule} onDismiss={() => { onFeedbackFlowDone(); }} />}
       </div>
     </div>
   );

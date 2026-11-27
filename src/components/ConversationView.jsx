@@ -41,7 +41,7 @@ function ReadingReply() {
   );
 }
 
-export default function ConversationView({ conversation, isReading, onSignInSave, onNewProject, signedIn, showChanges, onToggleChanges, comparePair, onCompare, onCloseCompare, inputHasText, onMakePostReady, postReadyRemaining }) {
+export default function ConversationView({ conversation, isReading, onSignInSave, onNewProject, signedIn, showChanges, onToggleChanges, comparePair, onCompare, onCloseCompare, inputHasText, onMakePostReady, postReadyRemaining, showFeedback, onSubmitFeedback, onFeedbackFlowDone, onStartSchedule }) {
   const scrollRef = useRef(null);
 
   useLayoutEffect(() => {
@@ -56,7 +56,7 @@ export default function ConversationView({ conversation, isReading, onSignInSave
           <UserBubble text={conversation.original} />
           {isReading || !conversation.result ? <ReadingReply /> : (
             <div>
-              <ResultBubble result={conversation.result} showChanges={showChanges} onToggleChanges={onToggleChanges} onCompare={() => onCompare({ sourceText: conversation.original, result: conversation.result })} onMakePostReady={onMakePostReady} postReadyRemaining={postReadyRemaining} isLoading={isReading} />
+              <ResultBubble result={conversation.result} showChanges={showChanges} onToggleChanges={onToggleChanges} onCompare={() => onCompare({ sourceText: conversation.original, result: conversation.result })} onMakePostReady={onMakePostReady} postReadyRemaining={postReadyRemaining} isLoading={isReading} showFeedback={showFeedback && !(conversation.followUps ?? []).length} onSubmitFeedback={onSubmitFeedback} onFeedbackFlowDone={onFeedbackFlowDone} onStartSchedule={onStartSchedule} />
             </div>
           )}
           {(conversation.followUps ?? []).map((followUp, index) => (
