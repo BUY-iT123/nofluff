@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { getCheckNotes, shouldShowPostReady } from "../utils/postReady";
 
 function ResultText({ segs, showChanges }) {
@@ -52,6 +53,7 @@ const rewriteReactions = [
 function RewriteFeedback({ selected, onSelect, onStartSchedule, onDismiss }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [reactionOpen, setReactionOpen] = useState(true);
   const [offerVisible, setOfferVisible] = useState(false);
   const offerTimer = useRef(null);
 
@@ -63,7 +65,8 @@ function RewriteFeedback({ selected, onSelect, onStartSchedule, onDismiss }) {
     setError("");
     try {
       await onSelect(value);
-      offerTimer.current = window.setTimeout(() => setOfferVisible(true), 1800);
+      setReactionOpen(false);
+      offerTimer.current = window.setTimeout(() => setOfferVisible(true), 2200);
     } catch (feedbackError) {
       setError(feedbackError.message || "Your feedback couldn’t be saved. Please try again.");
     } finally {
@@ -71,38 +74,33 @@ function RewriteFeedback({ selected, onSelect, onStartSchedule, onDismiss }) {
     }
   };
 
-  return (
-    <section className="mt-4 max-w-[85%] rounded-card border border-border bg-card p-4 text-text shadow-card max-mobile:ml-4 max-mobile:max-w-[92%]" aria-label="Rewrite feedback">
-      <p className="mb-3 text-small font-medium">Do you like this NoFluff rewrite?</p>
-      <div className="flex items-start justify-between gap-1">
-        {rewriteReactions.map((reaction) => {
-          const isSelected = selected === reaction.value;
-          return (
-            <button
-              type="button"
-              key={reaction.value}
-              aria-label={reaction.label}
-              aria-pressed={isSelected}
-              disabled={saving || Boolean(selected)}
-              onClick={() => handleSelect(reaction.value)}
-              className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-1 rounded-button border px-1 py-2 transition-colors disabled:cursor-default ${isSelected ? "border-selected-border bg-selected" : "border-transparent bg-transparent hover:bg-selected"}`}
-            >
-              <span className="text-2xl leading-none" aria-hidden="true">{reaction.emoji}</span>
-              <span className="text-[10px] leading-3 text-muted">{reaction.label}</span>
-            </button>
-          );
-        })}
-      </div>
-      {saving && <p className="mt-2 text-small text-muted" role="status">Saving your feedback…</p>}
-      {error && <p className="mt-2 text-small text-text" role="alert">{error}</p>}
-      {offerVisible && <div className="mt-4 rounded-card border border-selected-border bg-selected p-3">
-        <p className="text-small font-medium text-text">Want a simple posting plan?</p>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={onStartSchedule} className="min-h-10 rounded-button bg-brand px-3 text-small font-medium text-white">Set my schedule</button>
-          <button type="button" onClick={onDismiss} className="min-h-10 rounded-button px-2 text-small font-medium text-muted">Not now</button>
+  if (!reactionOpen && !offerVisible) return null;
+  return createPortal(
+    <div className="feedback-backdrop fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget && offerVisible) { setOfferVisible(false); onDismiss(); } }}>
+      {reactionOpen && <section className="feedback-modal w-full max-w-[420px] rounded-card border border-border bg-card p-6 text-center text-text shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="rewrite-feedback-title">
+        <p className="text-small font-medium text-muted">Your first NoFluff rewrite</p>
+        <h2 id="rewrite-feedback-title" className="mt-2 text-lg font-semibold">How did it feel?</h2>
+        <div className="mt-5 flex items-start justify-center gap-2">
+          {rewriteReactions.map((reaction) => {
+            const isSelected = selected === reaction.value;
+            return <button type="button" key={reaction.value} aria-label={reaction.label} aria-pressed={isSelected} disabled={saving || Boolean(selected)} onClick={() => handleSelect(reaction.value)} className={`flex min-h-[76px] min-w-16 flex-1 flex-col items-center justify-center gap-2 rounded-button border px-1 py-2 transition-colors disabled:cursor-default ${isSelected ? "border-selected-border bg-selected" : "border-border bg-card hover:bg-selected"}`}>
+              <span className="text-3xl leading-none" aria-hidden="true">{reaction.emoji}</span>
+              <span className="text-[11px] leading-3 text-muted">{reaction.label}</span>
+            </button>;
+          })}
         </div>
-      </div>}
-    </section>
+        {saving && <p className="mt-3 text-small text-muted" role="status">Saving your feedback…</p>}
+        {error && <p className="mt-3 text-small text-text" role="alert">{error}</p>}
+      </section>}
+      {offerVisible && <section className="feedback-modal w-full max-w-[420px] rounded-card border border-border bg-card p-6 text-center text-text shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="posting-plan-title">
+        <h2 id="posting-plan-title" className="text-lg font-semibold">Want a simple posting plan?</h2>
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
+          <button type="button" onClick={onStartSchedule} className="min-h-11 rounded-button bg-brand px-5 text-user font-medium text-white">Set my schedule</button>
+          <button type="button" onClick={() => { setOfferVisible(false); onDismiss(); }} className="min-h-11 rounded-button px-5 text-user font-medium text-muted hover:bg-row-hover">Not now</button>
+        </div>
+      </section>}
+    </div>,
+    document.body,
   );
 }
 
