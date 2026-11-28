@@ -53,11 +53,18 @@ const rewriteReactions = [
 function RewriteFeedback({ selected, onSelect, onStartSchedule, onDismiss }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [reactionOpen, setReactionOpen] = useState(true);
+  const [reactionOpen, setReactionOpen] = useState(false);
   const [offerVisible, setOfferVisible] = useState(false);
+  const reactionTimer = useRef(null);
   const offerTimer = useRef(null);
 
-  useEffect(() => () => window.clearTimeout(offerTimer.current), []);
+  useEffect(() => {
+    reactionTimer.current = window.setTimeout(() => setReactionOpen(true), 15000);
+    return () => {
+      window.clearTimeout(reactionTimer.current);
+      window.clearTimeout(offerTimer.current);
+    };
+  }, []);
 
   const handleSelect = async (value) => {
     if (saving || selected) return;

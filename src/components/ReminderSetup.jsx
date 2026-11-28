@@ -10,7 +10,7 @@ const daysOfWeek = [
   { value: "sun", label: "Sun" },
 ];
 
-export default function ReminderSetup({ email, onBack, onSave }) {
+export default function ReminderSetup({ email, draftText, onBack, onSave }) {
   const [weeks, setWeeks] = useState(1);
   const [days, setDays] = useState([]);
   const [time, setTime] = useState("18:00");
@@ -43,6 +43,7 @@ export default function ReminderSetup({ email, onBack, onSave }) {
         days,
         time,
         timeZone,
+        draftText,
         backup: backupType ? { type: backupType, value: backupValue.trim() } : null,
       });
       setSaved(true);

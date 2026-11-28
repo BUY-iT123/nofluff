@@ -7,6 +7,7 @@ import ConversationView from "./components/ConversationView";
 import MobileDrawer from "./components/MobileDrawer";
 import SignInModal from "./components/SignInModal";
 import ReminderSetup from "./components/ReminderSetup";
+import ScheduledPost from "./components/ScheduledPost";
 
 function makeProjectTitle(text = "") {
   return text.trim().split(/\s+/).slice(0, 5).join(" ").replace(/[.,!?;:]+$/, "");
@@ -125,6 +126,7 @@ export default function App() {
   const [requestError, setRequestError] = useState("");
   const [feedbackEligible, setFeedbackEligible] = useState(false);
   const [reminderSetupOpen, setReminderSetupOpen] = useState(false);
+  const [scheduledReminder, setScheduledReminder] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -136,10 +138,11 @@ export default function App() {
         setAccountUser(session.user);
         setSignedIn(true);
 
-        const [usageResponse, projectsResponse, feedbackResponse] = await Promise.all([
+        const [usageResponse, projectsResponse, feedbackResponse, reminderResponse] = await Promise.all([
           fetch("/api/usage"),
           fetch("/api/projects"),
           fetch("/api/feedback/status"),
+          fetch("/api/reminders/today"),
         ]);
         if (!active) return;
         if (usageResponse.ok) {
@@ -154,6 +157,10 @@ export default function App() {
         if (feedbackResponse.ok) {
           const feedback = await feedbackResponse.json();
           setFeedbackEligible(Boolean(feedback.eligible));
+        }
+        if (reminderResponse.ok) {
+          const reminder = await reminderResponse.json();
+          setScheduledReminder(reminder.reminder ?? null);
         }
       } catch {
         // Keep the app usable if account data cannot be reached temporarily.
@@ -236,6 +243,20 @@ export default function App() {
     }
   };
 
+  const handleScheduledRewrite = async (text, scheduledAt) => {
+    const succeeded = await handleSend(text);
+    if (!succeeded) throw new Error("NoFluff couldn’t start that rewrite. Please try again.");
+    try {
+      await fetch("/api/reminders/consume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheduledAt }),
+      });
+    } finally {
+      setScheduledReminder(null);
+    }
+  };
+
   const handleEditSend = async (instruction) => {
     if (!conversation) return false;
     const previous = conversation.followUps?.at(-1)?.result ?? conversation.result;
@@ -288,6 +309,11 @@ export default function App() {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Your schedule could not be saved. Please try again.");
+    const todayResponse = await fetch("/api/reminders/today");
+    if (todayResponse.ok) {
+      const today = await todayResponse.json();
+      setScheduledReminder(today.reminder ?? null);
+    }
     return payload;
   };
 
@@ -327,10 +353,11 @@ export default function App() {
     setRequestError("");
     setAccountUser(payload.user);
     setSignedIn(true);
-    const [usageResponse, projectsResponse, feedbackResponse] = await Promise.all([
+    const [usageResponse, projectsResponse, feedbackResponse, reminderResponse] = await Promise.all([
       fetch("/api/usage"),
       fetch("/api/projects"),
       fetch("/api/feedback/status"),
+      fetch("/api/reminders/today"),
     ]);
     if (usageResponse.ok) {
       const usage = await usageResponse.json();
@@ -345,6 +372,10 @@ export default function App() {
       const feedback = await feedbackResponse.json();
       setFeedbackEligible(Boolean(feedback.eligible));
     }
+    if (reminderResponse.ok) {
+      const reminder = await reminderResponse.json();
+      setScheduledReminder(reminder.reminder ?? null);
+    }
   };
 
   return (
@@ -355,7 +386,9 @@ export default function App() {
         <MobileHeader onOpenProjects={() => setProjectsOpen(true)} projectsOpen={projectsOpen} />
         <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
           {reminderSetupOpen ? (
-            <ReminderSetup email={accountUser?.email} onBack={() => setReminderSetupOpen(false)} onSave={handleSaveReminder} />
+            <ReminderSetup email={accountUser?.email} draftText={conversation?.result?.text} onBack={() => setReminderSetupOpen(false)} onSave={handleSaveReminder} />
+          ) : scheduledReminder ? (
+            <ScheduledPost reminder={scheduledReminder} onRewrite={handleScheduledRewrite} />
           ) : conversation ? (
             <ConversationView
               key={selectedProjectId ?? "new-conversation"}
@@ -392,6 +425,22 @@ export default function App() {
         </main>
       </div>
       {signInOpen && <SignInModal onClose={() => setSignInOpen(false)} onGoogleCredential={handleGoogleCredential} />}
+      <div className="maintenance-overlay fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-950/75 via-slate-950/65 to-blue-950/70 px-4 py-8 backdrop-blur-[3px]" role="dialog" aria-modal="true" aria-labelledby="maintenance-title">
+        <section className="maintenance-card w-full max-w-[520px] rounded-2xl border border-white/15 bg-slate-950/75 p-6 text-center text-white shadow-2xl shadow-slate-950/40 sm:p-9">
+          <span className="mx-auto mb-5 flex size-12 items-center justify-center rounded-xl bg-white/10 text-xl text-blue-300" aria-hidden="true">✦</span>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-200">NoFluff update</p>
+          <h1 id="maintenance-title" className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">We’re working on fixes to NoFluff</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-300">Sorry for the inconvenience. We’re working to get things running smoothly again.</p>
+          <form className="mt-7 text-left" onSubmit={(event) => event.preventDefault()}>
+            <label htmlFor="maintenance-email" className="mb-2 block text-sm font-medium text-slate-100">Enter your email to hear when the fixes are ready.</label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input id="maintenance-email" type="email" autoComplete="email" placeholder="you@example.com" className="min-h-12 min-w-0 flex-1 rounded-button border border-white/15 bg-white/10 px-4 text-sm text-white outline-none placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-300/20" />
+              <button type="submit" className="min-h-12 rounded-button bg-gradient-to-r from-blue-500 via-violet-500 to-cyan-400 px-5 text-sm font-semibold text-slate-950 transition hover:brightness-110">Notify me</button>
+            </div>
+            <p className="mt-2 text-xs text-slate-400">We’ll only use your email for this update.</p>
+          </form>
+        </section>
+      </div>
     </div>
   );
 }
